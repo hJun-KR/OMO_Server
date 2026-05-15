@@ -10,3 +10,210 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+enum StyleKeyword {
+  CASUAL
+  STREET
+  MINIMAL
+  LOVELY
+  FORMAL
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum ReportReason {
+  SPAM
+  ABUSE
+  INAPPROPRIATE
+  ETC
+}
+
+enum ReportTargetType {
+  POST
+  USER
+  COMMENT
+}
+
+model User {
+  id                String              @id @default(uuid())
+  loginId           String              @unique
+  email             String              @unique
+  password          String
+  nickname          String              @unique
+
+  styleKeyword      StyleKeyword
+  height            Int
+  weight            Int
+  bio               String?
+  profileImage      String?
+
+  role              UserRole            @default(USER)
+  isDeleted         Boolean             @default(false)
+  lastLoginAt       DateTime?
+
+  refreshTokens     RefreshToken[]
+  posts             Post[]
+
+  followers         Follow[]            @relation("UserToFollowers")
+  followings        Follow[]            @relation("UserToFollowings")
+
+  likes             Like[]
+  bookmarks         Bookmark[]
+  
+  reportsMade       Report[]            @relation("Reporter")
+  reportsReceived   Report[]            @relation("ReportedUser")
+
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  @@index([loginId])
+  @@index([nickname])
+  @@index([email])
+}
+
+model RefreshToken {
+  id              String          @id @default(uuid())
+  token           String          @unique
+  userId          String
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  userAgent       String?
+  ipAddress       String?
+  expiresAt       DateTime
+
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([userId])
+}
+
+model Follow {
+  id              String          @id @default(uuid())
+  followerId      String
+  followingId     String
+
+  follower        User            @relation("UserToFollowings", fields: [followerId], references: [id], onDelete: Cascade)
+  following       User            @relation("UserToFollowers", fields: [followingId], references: [id], onDelete: Cascade)
+
+  createdAt       DateTime        @default(now())
+
+  @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+}
+
+model Post {
+  id                String              @id @default(uuid())
+  title             String
+  description       String
+  authorId          String
+  author            User                @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  images            PostImage[]
+  hashtags          Hashtag[]
+  detectedProducts  DetectedProduct[]
+  likes             Like[]
+  bookmarks         Bookmark[]
+  reports           Report[]
+
+  viewCount         Int                 @default(0)
+  likeCount         Int                 @default(0)
+  bookmarkCount     Int                 @default(0)
+  commentCount      Int                 @default(0)
+
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  @@index([authorId])
+  @@index([createdAt])
+  @@index([viewCount])
+  @@index([likeCount])
+}
+
+model PostImage {
+  id              String          @id @default(uuid())
+  imageUrl        String
+  order           Int             @default(0)
+  postId          String
+  post            Post            @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  createdAt       DateTime        @default(now())
+  @@index([postId])
+}
+
+model Hashtag {
+  id              String          @id @default(uuid())
+  name            String          @unique
+  posts           Post[]
+}
+
+model DetectedProduct {
+  id              String          @id @default(uuid())
+  name            String
+  brand           String?
+  purchaseUrl     String?
+  imageUrl        String?
+  confidence      Float?
+  isEdited        Boolean         @default(false)
+  postId          String
+  post            Post            @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([postId])
+}
+
+model Like {
+  id              String          @id @default(uuid())
+  userId          String
+  postId          String
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post            Post            @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  createdAt       DateTime        @default(now())
+
+  @@unique([userId, postId])
+  @@index([userId])
+  @@index([postId])
+}
+
+model Bookmark {
+  id              String          @id @default(uuid())
+  userId          String
+  postId          String
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post            Post            @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  createdAt       DateTime        @default(now())
+
+  @@unique([userId, postId])
+  @@index([userId])
+  @@index([postId])
+}
+
+model Report {
+  id              String          @id @default(uuid())
+  reason          ReportReason
+  description     String?
+
+  targetType      ReportTargetType    @default(POST) 
+  
+  reporterId      String
+  reporter        User                @relation("Reporter", fields: [reporterId], references: [id], onDelete: Cascade)
+
+  postId          String?
+  post            Post?               @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  reportedUserId  String?
+  reportedUser    User?               @relation("ReportedUser", fields: [reportedUserId], references: [id], onDelete: Cascade)
+
+  createdAt       DateTime            @default(now())
+
+  @@index([reporterId])
+  @@index([postId])
+  @@index([reportedUserId])
+}
