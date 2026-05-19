@@ -8,9 +8,25 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import type { StringValue } from 'ms';
 import { PrismaService } from '../../prisma/prisma.service';
-import { RegisterDto } from './dto/register.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginDto } from './dto/login.dto';
+import { RegisterDto } from './dto/register.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { WithdrawDto } from './dto/withdraw.dto';
+
+const PROFILE_SELECT = {
+  id: true,
+  loginId: true,
+  nickname: true,
+  email: true,
+  styleKeyword: true,
+  height: true,
+  weight: true,
+  bio: true,
+  profileImage: true,
+  role: true,
+  createdAt: true,
+} as const;
 
 @Injectable()
 export class AuthService {
@@ -41,7 +57,7 @@ export class AuthService {
     }
 
     const hashed = await bcrypt.hash(dto.password, 12);
-    const user = await this.prisma.user.create({
+    return this.prisma.user.create({
       data: { ...dto, password: hashed },
       select: {
         id: true,
@@ -51,8 +67,6 @@ export class AuthService {
         createdAt: true,
       },
     });
-
-    return user;
   }
 
   async login(dto: LoginDto, meta: { userAgent?: string; ipAddress?: string }) {
@@ -86,6 +100,20 @@ export class AuthService {
     await this.prisma.refreshToken.deleteMany({ where: { id: tokenId } });
   }
 
+  async logoutAll(userId: string) {
+    await this.prisma.refreshToken.deleteMany({ where: { userId } });
+  }
+
+  async getProfile(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId, isDeleted: false },
+      select: PROFILE_SELECT,
+    });
+
+    if (!user) throw new UnauthorizedException('유저를 찾을 수 없습니다');
+    return user;
+  }
+
   async updateProfile(userId: string, dto: UpdateProfileDto) {
     if (dto.nickname) {
       const conflict = await this.prisma.user.findFirst({
@@ -97,17 +125,46 @@ export class AuthService {
     return this.prisma.user.update({
       where: { id: userId },
       data: dto,
-      select: {
-        id: true,
-        loginId: true,
-        nickname: true,
-        email: true,
-        styleKeyword: true,
-        height: true,
-        weight: true,
-        bio: true,
-        profileImage: true,
-      },
+      select: PROFILE_SELECT,
+    });
+  }
+
+  async changePassword(userId: string, dto: ChangePasswordDto) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId, isDeleted: false },
+      select: { password: true },
+    });
+
+    if (!user) throw new UnauthorizedException('유저를 찾을 수 없습니다');
+
+    const valid = await bcrypt.compare(dto.currentPassword, user.password);
+    if (!valid)
+      throw new UnauthorizedException('현재 비밀번호가 올바르지 않습니다');
+
+    const hashed = await bcrypt.hash(dto.newPassword, 12);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { password: hashed },
+    });
+
+    await this.prisma.refreshToken.deleteMany({ where: { userId } });
+  }
+
+  async withdraw(userId: string, dto: WithdrawDto) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId, isDeleted: false },
+      select: { password: true },
+    });
+
+    if (!user) throw new UnauthorizedException('유저를 찾을 수 없습니다');
+
+    const valid = await bcrypt.compare(dto.password, user.password);
+    if (!valid) throw new UnauthorizedException('비밀번호가 올바르지 않습니다');
+
+    await this.prisma.refreshToken.deleteMany({ where: { userId } });
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { isDeleted: true },
     });
   }
 
