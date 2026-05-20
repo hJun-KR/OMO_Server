@@ -159,8 +159,15 @@ model DetectedProduct {
   brand           String?
   purchaseUrl     String?
   imageUrl        String?
+
+  positionX       Float?
+  positionY       Float?
+
+  category        String?
+  price           Int?
   confidence      Float?
   isEdited        Boolean         @default(false)
+
   postId          String
   post            Post            @relation(fields: [postId], references: [id], onDelete: Cascade)
 
