@@ -56,3 +56,28 @@ pids
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
 /generated/prisma
+
+# Secrets & keys
+*.pem
+*.key
+*.p12
+*.pfx
+secrets.json
+service-account.json
+firebase-adminsdk*.json
+gcp-credentials.json
+
+# Prisma
+prisma/dev.db
+prisma/dev.db-journal
+prisma/*.db
+
+# Uploads
+uploads/
+
+# macOS
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+.AppleDouble
