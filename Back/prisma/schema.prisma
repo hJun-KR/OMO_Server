@@ -36,6 +36,13 @@ enum ReportTargetType {
   USER
 }
 
+enum DetectionStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
 model User {
   id                String              @id @default(uuid())
   loginId           String              @unique
@@ -138,6 +145,7 @@ model Post {
   bookmarkCount     Int                 @default(0)
   
   trendScore        Float               @default(0)
+  detectionStatus   DetectionStatus     @default(COMPLETED)
 
   isDeleted         Boolean             @default(false)
 
@@ -170,13 +178,15 @@ model Hashtag {
 
 model DetectedProduct {
   id              String          @id @default(uuid())
-  name            String
+  name            String?
   brand           String?
   purchaseUrl     String?
   imageUrl        String?
 
   positionX       Float?
   positionY       Float?
+  width           Float?
+  height          Float?
 
   category        String?
   price           Int?
@@ -185,6 +195,9 @@ model DetectedProduct {
 
   postId          String
   post            Post            @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  productId       String?
+  product         Product?        @relation(fields: [productId], references: [id], onDelete: SetNull)
 
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
@@ -275,4 +288,62 @@ model FashionProduct {
   item            FashionItem     @relation(fields: [itemId], references: [id], onDelete: Cascade)
 
   @@index([itemId])
+}
+
+model Product {
+  id              String            @id @default(uuid())
+  externalId      String            @unique
+  source          String
+  name            String
+  brand           String?
+  brandName       String?
+  thumbnailUrl    String?
+  productUrl      String?
+  price           Int?
+  reviewCount     Int?
+  reviewScore     Float?
+  category        String?
+  gender          String?
+  isDeleted       Boolean           @default(false)
+
+  images          ProductImage[]
+  embeddings      ProductEmbedding[]
+  detectedProducts DetectedProduct[]
+
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@index([externalId])
+  @@index([category])
+}
+
+model ProductImage {
+  id              String            @id @default(uuid())
+  productId       String
+  product         Product           @relation(fields: [productId], references: [id], onDelete: Cascade)
+  imageUrl        String
+  imageType       String?
+  order           Int               @default(0)
+
+  embeddings      ProductEmbedding[]
+
+  createdAt       DateTime          @default(now())
+
+  @@index([productId])
+}
+
+model ProductEmbedding {
+  id              String            @id @default(uuid())
+  productId       String
+  product         Product           @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productImageId  String
+  productImage    ProductImage      @relation(fields: [productImageId], references: [id], onDelete: Cascade)
+  vectorId        String            @unique
+  modelName       String
+  dimension       Int
+
+  createdAt       DateTime          @default(now())
+
+  @@index([productId])
+  @@index([productImageId])
 }
