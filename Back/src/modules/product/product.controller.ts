@@ -1,7 +1,9 @@
 import { Controller, Get, Logger, Param, Post, UseGuards } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bull';
 import type { Queue } from 'bull';
+import { UserRole } from '@prisma/client';
 import { JwtAuthGuard } from '../../common/auth/guards/jwt-auth.guard';
+import { Roles, RolesGuard } from '../../common/auth/guards/roles.guard';
 import { MusinsaCrawlerService } from './services/musinsa-crawler.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { QUEUE_EMBEDDING } from '../../queue/bull.module';
@@ -30,11 +32,15 @@ export class ProductController {
   }
 
   @Post('crawl/start')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN)
   startCrawl() {
     return this.crawler.enqueueCrawl();
   }
 
   @Post('embedding/retry')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN)
   async retryMissingEmbeddings() {
     const missing = await this.prisma.$queryRaw<{
       id: string;
