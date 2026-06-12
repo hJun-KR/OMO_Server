@@ -116,7 +116,34 @@ export class PostService {
     return { detectionStatus: 'PENDING' };
   }
 
-  async findOne(postId: string) {
+  private async attachUserStatus<T extends { id: string }>(
+    userId: string,
+    posts: T[],
+  ) {
+    const postIds = posts.map((p) => p.id);
+
+    const [likes, bookmarks] = await Promise.all([
+      this.prisma.like.findMany({
+        where: { userId, postId: { in: postIds } },
+        select: { postId: true },
+      }),
+      this.prisma.bookmark.findMany({
+        where: { userId, postId: { in: postIds } },
+        select: { postId: true },
+      }),
+    ]);
+
+    const likedSet = new Set(likes.map((l) => l.postId));
+    const bookmarkedSet = new Set(bookmarks.map((b) => b.postId));
+
+    return posts.map((p) => ({
+      ...p,
+      isLiked: likedSet.has(p.id),
+      isBookmarked: bookmarkedSet.has(p.id),
+    }));
+  }
+
+  async findOne(userId: string, postId: string) {
     const post = await this.prisma.post.findUnique({
       where: { id: postId, isDeleted: false },
       select: POST_SELECT,
@@ -129,7 +156,8 @@ export class PostService {
       data: { viewCount: { increment: 1 } },
     });
 
-    return post;
+    const [result] = await this.attachUserStatus(userId, [post]);
+    return result;
   }
 
   async findMany(userId: string, dto: GetPostsDto) {
@@ -154,7 +182,7 @@ export class PostService {
       });
 
       return {
-        posts,
+        posts: await this.attachUserStatus(userId, posts),
         nextCursor: posts.length === limit ? posts[posts.length - 1].id : null,
       };
     }
@@ -169,7 +197,7 @@ export class PostService {
     });
 
     return {
-      posts,
+      posts: await this.attachUserStatus(userId, posts),
       nextCursor: posts.length === limit ? posts[posts.length - 1].id : null,
     };
   }
@@ -247,6 +275,85 @@ export class PostService {
       where: { id: postId },
       select: POST_SELECT,
     });
+  }
+
+  async likePost(userId: string, postId: string) {
+    const post = await this.prisma.post.findUnique({
+      where: { id: postId, isDeleted: false },
+    });
+    if (!post) throw new NotFoundException('게시글을 찾을 수 없습니다');
+
+    const existing = await this.prisma.like.findUnique({
+      where: { userId_postId: { userId, postId } },
+    });
+
+    if (existing) {
+      await this.prisma.like.delete({
+        where: { userId_postId: { userId, postId } },
+      });
+      await this.prisma.post.update({
+        where: { id: postId },
+        data: { likeCount: { decrement: 1 } },
+      });
+      return { liked: false };
+    }
+
+    await this.prisma.like.create({ data: { userId, postId } });
+    await this.prisma.post.update({
+      where: { id: postId },
+      data: { likeCount: { increment: 1 } },
+    });
+    return { liked: true };
+  }
+
+  async bookmarkPost(userId: string, postId: string) {
+    const post = await this.prisma.post.findUnique({
+      where: { id: postId, isDeleted: false },
+    });
+    if (!post) throw new NotFoundException('게시글을 찾을 수 없습니다');
+
+    const existing = await this.prisma.bookmark.findUnique({
+      where: { userId_postId: { userId, postId } },
+    });
+
+    if (existing) {
+      await this.prisma.bookmark.delete({
+        where: { userId_postId: { userId, postId } },
+      });
+      await this.prisma.post.update({
+        where: { id: postId },
+        data: { bookmarkCount: { decrement: 1 } },
+      });
+      return { bookmarked: false };
+    }
+
+    await this.prisma.bookmark.create({ data: { userId, postId } });
+    await this.prisma.post.update({
+      where: { id: postId },
+      data: { bookmarkCount: { increment: 1 } },
+    });
+    return { bookmarked: true };
+  }
+
+  async getMyBookmarks(userId: string, cursor?: string, limit = 20) {
+    const bookmarks = await this.prisma.bookmark.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      cursor: cursor ? { id: cursor } : undefined,
+      skip: cursor ? 1 : undefined,
+      select: {
+        id: true,
+        createdAt: true,
+        post: { select: POST_SELECT },
+      },
+    });
+
+    return {
+      bookmarks,
+      nextCursor:
+        bookmarks.length === limit ? bookmarks[bookmarks.length - 1].id : null,
+    };
   }
 
   async remove(userId: string, postId: string) {

@@ -13,6 +13,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
+import type { Request as ExpressRequest } from 'express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
 import { JwtAuthGuard } from '../../common/auth/guards/jwt-auth.guard';
@@ -22,14 +23,8 @@ import { UpdateDetectedProductsDto } from './dto/update-detected-products.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
 import { PostService } from './post.service';
 
-interface AuthUser {
-  id: string;
-  loginId: string;
-  role: string;
-}
-
-interface AuthRequest extends Request {
-  user: AuthUser;
+interface AuthRequest extends ExpressRequest {
+  user: { id: string; loginId: string; role: string };
 }
 
 const imageStorage = diskStorage({
@@ -61,8 +56,8 @@ export class PostController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.postService.findOne(id);
+  findOne(@Request() req: AuthRequest, @Param('id') id: string) {
+    return this.postService.findOne(req.user.id, id);
   }
 
   @Patch(':id')
@@ -74,6 +69,29 @@ export class PostController {
     @UploadedFiles() files: Express.Multer.File[],
   ) {
     return this.postService.update(req.user.id, id, dto, files ?? []);
+  }
+
+  @Post(':id/like')
+  likePost(@Request() req: AuthRequest, @Param('id') id: string) {
+    return this.postService.likePost(req.user.id, id);
+  }
+
+  @Post(':id/bookmark')
+  bookmarkPost(@Request() req: AuthRequest, @Param('id') id: string) {
+    return this.postService.bookmarkPost(req.user.id, id);
+  }
+
+  @Get('bookmarks/me')
+  getMyBookmarks(
+    @Request() req: AuthRequest,
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.postService.getMyBookmarks(
+      req.user.id,
+      cursor,
+      limit ? Number(limit) : undefined,
+    );
   }
 
   @Post(':id/detect')
