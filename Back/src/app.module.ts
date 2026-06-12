@@ -8,6 +8,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './common/auth/auth.module';
 import { PostModule } from './modules/post/post.module';
 import { FashionModule } from './modules/fashion/fashion.module';
+import { ProductModule } from './modules/product/product.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { FashionModule } from './modules/fashion/fashion.module';
     AuthModule,
     PostModule,
     FashionModule,
+    ProductModule,
   ],
   controllers: [AppController],
   providers: [AppService],
