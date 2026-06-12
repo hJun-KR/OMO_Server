@@ -7,11 +7,13 @@ import {
   HttpStatus,
   Patch,
   Post,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { AuthService } from './auth.service';
+import { ChangeLoginIdDto } from './dto/change-login-id.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
@@ -27,6 +29,11 @@ interface AuthenticatedRequest extends Request {
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
+
+  @Get('check-login-id')
+  checkLoginId(@Query('loginId') loginId: string) {
+    return this.authService.checkLoginId(loginId);
+  }
 
   @Post('register')
   register(@Body() dto: RegisterDto) {
@@ -77,6 +84,16 @@ export class AuthController {
     @Body() dto: UpdateProfileDto,
   ) {
     return this.authService.updateProfile(req.user.id, dto);
+  }
+
+  @Patch('login-id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(JwtAuthGuard)
+  changeLoginId(
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: ChangeLoginIdDto,
+  ) {
+    return this.authService.changeLoginId(req.user.id, dto);
   }
 
   @Patch('password')
