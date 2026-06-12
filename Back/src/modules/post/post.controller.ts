@@ -18,6 +18,7 @@ import { extname } from 'path';
 import { JwtAuthGuard } from '../../common/auth/guards/jwt-auth.guard';
 import { CreatePostDto } from './dto/create-post.dto';
 import { GetPostsDto } from './dto/get-posts.dto';
+import { UpdateDetectedProductsDto } from './dto/update-detected-products.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
 import { PostService } from './post.service';
 
@@ -73,6 +74,20 @@ export class PostController {
     @UploadedFiles() files: Express.Multer.File[],
   ) {
     return this.postService.update(req.user.id, id, dto, files ?? []);
+  }
+
+  @Post(':id/detect')
+  triggerDetection(@Request() req: AuthRequest, @Param('id') id: string) {
+    return this.postService.triggerDetection(req.user.id, id);
+  }
+
+  @Patch(':id/detected-products')
+  updateDetectedProducts(
+    @Request() req: AuthRequest,
+    @Param('id') id: string,
+    @Body() dto: UpdateDetectedProductsDto,
+  ) {
+    return this.postService.updateDetectedProducts(req.user.id, id, dto);
   }
 
   @Delete(':id')
