@@ -41,7 +41,8 @@ model User {
   loginId           String              @unique
   email             String              @unique
   password          String
-  nickname          String              @unique
+  nickname          String
+  isEmailVerified   Boolean             @default(false)
 
   styleKeyword      StyleKeyword
   height            Int
@@ -68,9 +69,23 @@ model User {
   createdAt         DateTime            @default(now())
   updatedAt         DateTime            @updatedAt
 
+  emailVerifications EmailVerification[]
+
   @@index([loginId])
   @@index([nickname])
   @@index([email])
+}
+
+model EmailVerification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  code      String
+  sendCount Int      @default(1)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 model RefreshToken {
