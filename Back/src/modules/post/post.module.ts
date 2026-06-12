@@ -1,12 +1,13 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../../prisma/prisma.module';
-import { DetectService } from './detect.service';
+import { QueueModule } from '../../queue/bull.module';
+import { PostDetectionProcessor } from '../../queue/processors/post-detection.processor';
 import { PostController } from './post.controller';
 import { PostService } from './post.service';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, QueueModule],
   controllers: [PostController],
-  providers: [PostService, DetectService],
+  providers: [PostService, PostDetectionProcessor],
 })
 export class PostModule {}
