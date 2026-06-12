@@ -8,5 +8,6 @@ import { FashionService } from './fashion.service';
   imports: [PrismaModule],
   controllers: [FashionController],
   providers: [AiService, FashionService],
+  exports: [AiService],
 })
 export class FashionModule {}
