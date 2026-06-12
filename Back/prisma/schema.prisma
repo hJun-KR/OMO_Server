@@ -226,3 +226,38 @@ model Report {
   @@index([postId])
   @@index([reportedUserId])
 }
+
+model FashionSearch {
+  id              String          @id @default(uuid())
+  originalImage   String
+  items           FashionItem[]
+  createdAt       DateTime        @default(now())
+}
+
+model FashionItem {
+  id              String          @id @default(uuid())
+  type            String
+  croppedImage    String
+  brand           String?
+  brandConfidence Float?
+  searchQuery     String?
+  products        FashionProduct[]
+  searchId        String
+  search          FashionSearch   @relation(fields: [searchId], references: [id], onDelete: Cascade)
+  createdAt       DateTime        @default(now())
+
+  @@index([searchId])
+}
+
+model FashionProduct {
+  id              String          @id @default(uuid())
+  title           String
+  brand           String?
+  price           Int?
+  image           String?
+  link            String?
+  itemId          String
+  item            FashionItem     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([itemId])
+}
