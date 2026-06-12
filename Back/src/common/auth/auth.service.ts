@@ -8,6 +8,7 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import type { StringValue } from 'ms';
 import { PrismaService } from '../../prisma/prisma.service';
+import { ChangeLoginIdDto } from './dto/change-login-id.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
@@ -35,6 +36,14 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
   ) {}
+
+  async checkLoginId(loginId: string) {
+    const exists = await this.prisma.user.findUnique({
+      where: { loginId },
+      select: { id: true },
+    });
+    return { available: !exists };
+  }
 
   async register(dto: RegisterDto) {
     const exists = await this.prisma.user.findFirst({
@@ -127,6 +136,33 @@ export class AuthService {
       data: dto,
       select: PROFILE_SELECT,
     });
+  }
+
+  async changeLoginId(userId: string, dto: ChangeLoginIdDto): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId, isDeleted: false },
+      select: { password: true },
+    });
+
+    if (!user) throw new UnauthorizedException('유저를 찾을 수 없습니다');
+
+    const valid = await bcrypt.compare(dto.currentPassword, user.password);
+    if (!valid)
+      throw new UnauthorizedException('현재 비밀번호가 올바르지 않습니다');
+
+    const conflict = await this.prisma.user.findUnique({
+      where: { loginId: dto.newLoginId },
+      select: { id: true },
+    });
+    if (conflict) throw new ConflictException('이미 사용 중인 아이디입니다');
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { loginId: dto.newLoginId },
+    });
+
+    // loginId가 JWT 클레임에 포함되므로 모든 기기 강제 로그아웃
+    await this.prisma.refreshToken.deleteMany({ where: { userId } });
   }
 
   async changePassword(userId: string, dto: ChangePasswordDto) {
