@@ -9,6 +9,7 @@ import { AuthModule } from './common/auth/auth.module';
 import { PostModule } from './modules/post/post.module';
 import { FashionModule } from './modules/fashion/fashion.module';
 import { ProductModule } from './modules/product/product.module';
+import { FollowModule } from './modules/follow/follow.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { ProductModule } from './modules/product/product.module';
     PostModule,
     FashionModule,
     ProductModule,
+    FollowModule,
   ],
   controllers: [AppController],
   providers: [AppService],
