@@ -6,6 +6,41 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 
+const POST_SELECT = {
+  id: true,
+  title: true,
+  description: true,
+  viewCount: true,
+  likeCount: true,
+  bookmarkCount: true,
+  trendScore: true,
+  detectionStatus: true,
+  createdAt: true,
+  author: {
+    select: { id: true, nickname: true, profileImage: true },
+  },
+  images: {
+    select: { id: true, imageUrl: true, order: true },
+    orderBy: { order: 'asc' as const },
+  },
+  hashtags: {
+    select: { id: true, name: true },
+  },
+  detectedProducts: {
+    select: {
+      id: true,
+      category: true,
+      confidence: true,
+      positionX: true,
+      positionY: true,
+      width: true,
+      height: true,
+      productId: true,
+      isEdited: true,
+    },
+  },
+};
+
 const USER_SUMMARY_SELECT = {
   id: true,
   nickname: true,
@@ -132,6 +167,96 @@ export class FollowService {
       })),
       nextCursor,
       hasNext,
+    };
+  }
+
+  async getUserProfile(requesterId: string, targetId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: targetId, isDeleted: false },
+      select: {
+        id: true,
+        nickname: true,
+        profileImage: true,
+        bio: true,
+        styleKeyword: true,
+        _count: {
+          select: {
+            followers: true,
+            followings: true,
+            posts: true,
+          },
+        },
+      },
+    });
+
+    if (!user) throw new NotFoundException('존재하지 않는 유저입니다');
+
+    const isFollowing =
+      requesterId !== targetId
+        ? !!(await this.prisma.follow.findUnique({
+            where: {
+              followerId_followingId: {
+                followerId: requesterId,
+                followingId: targetId,
+              },
+            },
+            select: { id: true },
+          }))
+        : false;
+
+    const { _count, ...rest } = user;
+    return {
+      ...rest,
+      followersCount: _count.followers,
+      followingsCount: _count.followings,
+      postsCount: _count.posts,
+      isFollowing,
+    };
+  }
+
+  async getUserPosts(
+    requesterId: string,
+    targetId: string,
+    cursor?: string,
+    limit = 20,
+  ) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: targetId, isDeleted: false },
+      select: { id: true },
+    });
+    if (!user) throw new NotFoundException('존재하지 않는 유저입니다');
+
+    const posts = await this.prisma.post.findMany({
+      where: { authorId: targetId, isDeleted: false },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      cursor: cursor ? { id: cursor } : undefined,
+      skip: cursor ? 1 : undefined,
+      select: POST_SELECT,
+    });
+
+    const postIds = posts.map((p) => p.id);
+    const [likes, bookmarks] = await Promise.all([
+      this.prisma.like.findMany({
+        where: { userId: requesterId, postId: { in: postIds } },
+        select: { postId: true },
+      }),
+      this.prisma.bookmark.findMany({
+        where: { userId: requesterId, postId: { in: postIds } },
+        select: { postId: true },
+      }),
+    ]);
+
+    const likedSet = new Set(likes.map((l) => l.postId));
+    const bookmarkedSet = new Set(bookmarks.map((b) => b.postId));
+
+    return {
+      posts: posts.map((p) => ({
+        ...p,
+        isLiked: likedSet.has(p.id),
+        isBookmarked: bookmarkedSet.has(p.id),
+      })),
+      nextCursor: posts.length === limit ? posts[posts.length - 1].id : null,
     };
   }
 
