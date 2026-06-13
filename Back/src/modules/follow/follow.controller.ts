@@ -69,4 +69,27 @@ export class FollowController {
   ) {
     return this.followService.getFollowStatus(req.user.id, targetId);
   }
+
+  @Get(':id/posts')
+  getUserPosts(
+    @Req() req: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) targetId: string,
+    @Query('cursor') cursor?: string,
+    @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
+  ) {
+    return this.followService.getUserPosts(
+      req.user.id,
+      targetId,
+      cursor,
+      limit,
+    );
+  }
+
+  @Get(':id')
+  getUserProfile(
+    @Req() req: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) targetId: string,
+  ) {
+    return this.followService.getUserProfile(req.user.id, targetId);
+  }
 }
