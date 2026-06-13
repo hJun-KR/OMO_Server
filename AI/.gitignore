@@ -29,7 +29,7 @@ config.local.*
 
 # Data & uploads
 uploads/
-qdrant_data/
+qdrant_data*/
 
 # ML framework caches
 .paddleocr/
