@@ -10,6 +10,7 @@ import { PostModule } from './modules/post/post.module';
 import { FashionModule } from './modules/fashion/fashion.module';
 import { ProductModule } from './modules/product/product.module';
 import { FollowModule } from './modules/follow/follow.module';
+import { ReportModule } from './modules/report/report.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { FollowModule } from './modules/follow/follow.module';
     FashionModule,
     ProductModule,
     FollowModule,
+    ReportModule,
   ],
   controllers: [AppController],
   providers: [AppService],
